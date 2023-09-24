@@ -17,10 +17,11 @@ Courses.py is the Python file that contains courses and youtube video links.
 Download XAMP or any other control panel, and turn on the Apache & SQL service.
 To run app, write following command in CMD. or use any IDE.
 streamlit run App.py
-Uploaded_Resumes folder is contaning the user's uploaded resumes.
-Classifier.py is the main file which is containing a KNN Algorithm.
-For more explanation of this project see the tutorial on Machine Learning Hub YouTube channel.
-Admin side credentials is machine_learning_hub and password is mlhub123.
+
+Uploaded_Resumes folder will store the user's uploaded resumes.
+
+
+Screenshots:
 
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/3163411b-1e4c-4762-b96b-88e23e315644)
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/04664703-0af8-4d4f-be74-bae1db81ca2b)
@@ -31,7 +32,9 @@ Admin side credentials is machine_learning_hub and password is mlhub123.
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/7af5d9cb-0325-47fe-aae4-6b1c86c77cfe)
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/c2191e37-187c-409e-bb14-77525abb03da)
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/0f8ce9e2-a5f7-4cf1-bebe-49e4d8b91d1c)
-![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/548e378d-8eb9-4fb6-8f19-d02f5e61dd0f)
+![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/d5f54aa3-5070-4aeb-9004-4fff3dcbb685)
+
+
 
 
 
