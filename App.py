@@ -2,9 +2,8 @@ import streamlit as st
 import nltk
 import spacy
 nltk.download('stopwords')
-#spacy.load('en_core_web_sm')
-nlp = spacy.load('en_core_web_sm')
-import os
+spacy.load('en_core_web_sm')
+
 import pandas as pd
 import base64, random
 import time, datetime
@@ -22,10 +21,71 @@ from Courses import ds_course, web_course, android_course, ios_course, uiux_cour
 import pafy
 import plotly.express as px
 import youtube_dl
+import PyPDF2
+from pdfminer.high_level import extract_text
+import re
+import traceback
 
-def fetch_yt_video(link):
-    video = pafy.new(link)
-    return video.title
+
+
+def fetch_yt_video_title(link):
+    try:
+        ydl_opts = {
+            'quiet': True,
+            'no_warnings': True,
+            'force_generic_extractor': True,
+        }
+
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(link, download=False)
+        
+        return info_dict['title']
+
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error fetching video details: {e}")
+        traceback.print_exc()
+        # Return a default value or a specific error message
+        return "Error fetching video details"
+
+
+def extract_skills(text):
+    # Individual domain-specific skill lists
+    ds_keyword = ['tensorflow', 'keras', 'pytorch', 'machine learning', 'deep Learning', 'flask', 'streamlit']
+    web_keyword = ['react', 'django', 'node js', 'react js', 'php', 'laravel', 'magento', 'wordpress', 'javascript', 'angular js', 'c#', 'flask']
+    android_keyword = ['android', 'android development', 'flutter', 'kotlin', 'xml', 'kivy']
+    ios_keyword = ['ios', 'ios development', 'swift', 'cocoa', 'cocoa touch', 'xcode']
+    uiux_keyword = ['ux', 'adobe xd', 'figma', 'zeplin', 'balsamiq', 'ui', 'prototyping', 'wireframes', 'storyframes', 'adobe photoshop', 'photoshop', 'editing', 'adobe illustrator', 'illustrator', 'adobe after effects', 'after effects', 'adobe premier pro', 'premier pro', 'adobe indesign', 'indesign', 'wireframe', 'solid', 'grasp', 'user research', 'user experience']
+
+    # Combined list of all skills
+    skills_list = ds_keyword + web_keyword + android_keyword + ios_keyword + uiux_keyword
+
+    # Extract skills that are present in the text
+    skills_found = [skill for skill in skills_list if skill in text.lower()]
+
+    # Extract the domain of each skill found (optional, if you want this information)
+    skills_domain = {}
+    for skill in skills_found:
+        if skill in ds_keyword:
+            skills_domain[skill] = 'Data Science'
+        elif skill in web_keyword:
+            skills_domain[skill] = 'Web Development'
+        elif skill in android_keyword:
+            skills_domain[skill] = 'Android Development'
+        elif skill in ios_keyword:
+            skills_domain[skill] = 'iOS Development'
+        elif skill in uiux_keyword:
+            skills_domain[skill] = 'UI/UX Design'
+    
+    return skills_found, skills_domain
+
+
+def get_resume_text(file_path):
+    text = extract_text(file_path)
+    name_pattern = re.compile(r"([A-Z][a-z]+ [A-Z][a-z]+)")  # Matches names in "Firstname Lastname" format
+    match = name_pattern.search(text)
+    name = match.group(0) if match else "Unknown"
+    return {"name": name, "text": text}
 
 
 def get_table_download_link(df, filename, text):
@@ -40,7 +100,7 @@ def get_table_download_link(df, filename, text):
     return href
 
 
-def pdf_reader(file):
+#def pdf_reader(file):
     resource_manager = PDFResourceManager()
     fake_file_handle = io.StringIO()
     converter = TextConverter(resource_manager, fake_file_handle, laparams=LAParams())
@@ -56,6 +116,17 @@ def pdf_reader(file):
     # close open handles
     converter.close()
     fake_file_handle.close()
+    return text
+
+def pdf_reader(file):
+    with open(file, 'rb') as f:
+       # reader = PyPDF2.PdfFileReader(f)
+         reader = PyPDF2.PdfReader(f)
+         text = ""
+         for page_num in range(len(reader.pages)):
+           # text += reader.getPage(page_num).extract_text()
+            text += reader.pages[page_num].extract_text()
+
     return text
 
 
@@ -94,8 +165,13 @@ def insert_data(name, email, res_score, timestamp, no_of_pages, reco_field, cand
     rec_values = (
     name, email, str(res_score), timestamp, str(no_of_pages), reco_field, cand_level, skills, recommended_skills,
     courses)
-    cursor.execute(insert_sql, rec_values)
-    connection.commit()
+    try:
+       cursor.execute(insert_sql, rec_values)
+       connection.commit()
+    except pymysql.MySQLError as e:
+       connection.rollback()
+       st.error(f"Error inserting data: {e}")
+
 
 
 st.set_page_config(
@@ -112,7 +188,7 @@ def run():
     # link = '[©Developed by Spidy20](http://github.com/spidy20)'
     # st.sidebar.markdown(link, unsafe_allow_html=True)
    # img = Image.open('./Logo/SRA_Logo.jpg')
-    #img = img.resize((250, 250))
+   # img = img.resize((250, 250))
     #st.image(img)
 
     # Create the DB
@@ -141,20 +217,25 @@ def run():
         # st.markdown('''<h4 style='text-align: left; color: #d73b5c;'>* Upload your resume, and get smart recommendation based on it."</h4>''',
         #             unsafe_allow_html=True)
         pdf_file = st.file_uploader("Choose your Resume", type=["pdf"])
+        
         if pdf_file is not None:
             # with st.spinner('Uploading your Resume....'):
             #     time.sleep(4)
             save_image_path = './Uploaded_Resumes/' + pdf_file.name
-            directory = os.path.dirname(save_image_path)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
             with open(save_image_path, "wb") as f:
                 f.write(pdf_file.getbuffer())
             show_pdf(save_image_path)
-            resume_data = ResumeParser(save_image_path).get_extracted_data()
+           # resume_data = ResumeParser(save_image_path).get_extracted_data()
+            resume_data = get_resume_text(save_image_path)
+            text_from_resume = get_resume_text(save_image_path)["text"]
+            found_skills = extract_skills(text_from_resume)
+
+            st.write(resume_data)
+
             if resume_data:
                 ## Get the whole resume data
                 resume_text = pdf_reader(save_image_path)
+               # resume_text = resume_data["text"]
 
                 st.header("**Resume Analysis**")
                 st.success("Hello " + resume_data['name'])
@@ -167,15 +248,21 @@ def run():
                 except:
                     pass
                 cand_level = ''
-                if resume_data['no_of_pages'] == 1:
+                no_of_pages = resume_data.get('no_of_pages', None)
+                if resume_data.get('no_of_pages', None) == 1:
+
                     cand_level = "Fresher"
                     st.markdown('''<h4 style='text-align: left; color: #d73b5c;'>You are looking Fresher.</h4>''',
                                 unsafe_allow_html=True)
-                elif resume_data['no_of_pages'] == 2:
+                elif resume_data.get('no_of_pages', None) == 2:
+
                     cand_level = "Intermediate"
                     st.markdown('''<h4 style='text-align: left; color: #1ed760;'>You are at intermediate level!</h4>''',
                                 unsafe_allow_html=True)
-                elif resume_data['no_of_pages'] >= 3:
+                    
+                
+                elif no_of_pages is not None and no_of_pages >= 3:                              
+
                     cand_level = "Experienced"
                     st.markdown('''<h4 style='text-align: left; color: #fba171;'>You are at experience level!''',
                                 unsafe_allow_html=True)
@@ -184,8 +271,7 @@ def run():
                 ## Skill shows
                 keywords = st_tags(label='### Skills that you have',
                                    text='See our skills recommendation',
-                                   value=resume_data['skills'], key='1')
-
+                                   value=found_skills[0], key='1')
                 ##  recommendation
                 ds_keyword = ['tensorflow', 'keras', 'pytorch', 'machine learning', 'deep Learning', 'flask',
                               'streamlit']
@@ -202,11 +288,17 @@ def run():
                 recommended_skills = []
                 reco_field = ''
                 rec_course = ''
+                            
                 ## Courses recommendation
-                for i in resume_data['skills']:
+                for skill in found_skills[0]:
+                    skill_lower = skill.lower()
+                    #st.write(skill_lower)
+                                        
                     ## Data science recommendation
-                    if i.lower() in ds_keyword:
-                        print(i.lower())
+                    if skill_lower in ds_keyword:
+                       # st.write(skill_lower)
+                         
+
                         reco_field = 'Data Science'
                         st.success("** Our analysis says you are looking for Data Science Jobs.**")
                         recommended_skills = ['Data Visualization', 'Predictive Analysis', 'Statistical Modeling',
@@ -224,8 +316,10 @@ def run():
                         break
 
                     ## Web development recommendation
-                    elif i.lower() in web_keyword:
-                        print(i.lower())
+                    elif skill_lower in web_keyword:
+                      #  st.write(skill_lower)
+                       
+
                         reco_field = 'Web Development'
                         st.success("** Our analysis says you are looking for Web Development Jobs **")
                         recommended_skills = ['React', 'Django', 'Node JS', 'React JS', 'php', 'laravel', 'Magento',
@@ -240,8 +334,8 @@ def run():
                         break
 
                     ## Android App Development
-                    elif i.lower() in android_keyword:
-                        print(i.lower())
+                    elif skill_lower in android_keyword:
+                       # st.write(skill_lower)
                         reco_field = 'Android Development'
                         st.success("** Our analysis says you are looking for Android App Development Jobs **")
                         recommended_skills = ['Android', 'Android development', 'Flutter', 'Kotlin', 'XML', 'Java',
@@ -256,8 +350,8 @@ def run():
                         break
 
                     ## IOS App Development
-                    elif i.lower() in ios_keyword:
-                        print(i.lower())
+                    elif skill_lower in ios_keyword:
+                       # st.write(skill_lower)
                         reco_field = 'IOS Development'
                         st.success("** Our analysis says you are looking for IOS App Development Jobs **")
                         recommended_skills = ['IOS', 'IOS Development', 'Swift', 'Cocoa', 'Cocoa Touch', 'Xcode',
@@ -273,8 +367,8 @@ def run():
                         break
 
                     ## Ui-UX Recommendation
-                    elif i.lower() in uiux_keyword:
-                        print(i.lower())
+                    elif skill_lower in uiux_keyword:
+                      #  st.write(skill_lower)
                         reco_field = 'UI-UX Development'
                         st.success("** Our analysis says you are looking for UI-UX Development Jobs **")
                         recommended_skills = ['UI', 'User Experience', 'Adobe XD', 'Figma', 'Zeplin', 'Balsamiq',
@@ -370,22 +464,32 @@ def run():
                 st.warning(
                     "** Note: This score is calculated based on the content that you have added in your Resume. **")
                 st.balloons()
+                name = resume_data.get('name', 'Unknown Name')
+                email = resume_data.get('email', 'Unknown Email')
+                page_no = resume_data.get('no_of_pages', 0)
 
-                insert_data(resume_data['name'], resume_data['email'], str(resume_score), timestamp,
-                            str(resume_data['no_of_pages']), reco_field, cand_level, str(resume_data['skills']),
-                            str(recommended_skills), str(rec_course))
+
+
+               # insert_data(resume_data['name'], resume_data['email'], str(resume_score), timestamp,
+                  #          str(resume_data['no_of_pages']), reco_field, cand_level, str(resume_data['skills']),
+                   #         str(recommended_skills), str(rec_course))
+                insert_data(name, email, str(resume_score), timestamp,
+            str(resume_data.get('no_of_pages', 'Unknown Pages')), reco_field, cand_level, 
+            str(resume_data.get('skills', 'Unknown Skills')),
+            str(recommended_skills), str(rec_course))
+
 
                 ## Resume writing video
                 st.header("**Bonus Video for Resume Writing Tips💡**")
                 resume_vid = random.choice(resume_videos)
-                res_vid_title = fetch_yt_video(resume_vid)
+                res_vid_title = fetch_yt_video_title(resume_vid)
                 st.subheader("✅ **" + res_vid_title + "**")
                 st.video(resume_vid)
 
                 ## Interview Preparation Video
                 st.header("**Bonus Video for Interview👨‍💼 Tips💡**")
                 interview_vid = random.choice(interview_videos)
-                int_vid_title = fetch_yt_video(interview_vid)
+                int_vid_title = fetch_yt_video_title(interview_vid)
                 st.subheader("✅ **" + int_vid_title + "**")
                 st.video(interview_vid)
 
@@ -400,8 +504,8 @@ def run():
         ad_user = st.text_input("Username")
         ad_password = st.text_input("Password", type='password')
         if st.button('Login'):
-            if ad_user == 'machine_learning_hub' and ad_password == 'mlhub123':
-                st.success("Welcome Kushal")
+            if ad_user == 'Sabaree' and ad_password == 'sabi1081':
+                st.success(" Hello Sabaree!!!")
                 # Display Data
                 cursor.execute('''SELECT*FROM user_data''')
                 data = cursor.fetchall()
@@ -414,26 +518,8 @@ def run():
                 ## Admin Side Data
                 query = 'select * from user_data;'
                 plot_data = pd.read_sql(query, connection)
-
-                ## Pie chart for predicted field recommendations
-                labels = plot_data.Predicted_Field.unique()
-                print(labels)
-                values = plot_data.Predicted_Field.value_counts()
-                print(values)
-                st.subheader("📈 **Pie-Chart for Predicted Field Recommendations**")
-                fig = px.pie(df, values=values, names=labels, title='Predicted Field according to the Skills')
-                st.plotly_chart(fig)
-
-                ### Pie chart for User's👨‍💻 Experienced Level
-                labels = plot_data.User_level.unique()
-                values = plot_data.User_level.value_counts()
-                st.subheader("📈 ** Pie-Chart for User's👨‍💻 Experienced Level**")
-                fig = px.pie(df, values=values, names=labels, title="Pie-Chart📈 for User's👨‍💻 Experienced Level")
-                st.plotly_chart(fig)
-
-
             else:
-                st.error("Wrong ID & Password Provided")
+               st.error("Wrong ID & Password Provided")
 
 
 run()
