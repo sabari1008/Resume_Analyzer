@@ -31,8 +31,7 @@ Screenshots:
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/d32fd2e3-577c-4178-8778-931e0ff282b3)
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/7af5d9cb-0325-47fe-aae4-6b1c86c77cfe)
 ![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/c2191e37-187c-409e-bb14-77525abb03da)
-![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/0f8ce9e2-a5f7-4cf1-bebe-49e4d8b91d1c)
-![image](https://github.com/sabari1008/Resume_Analyzer/assets/136148371/d5f54aa3-5070-4aeb-9004-4fff3dcbb685)
+
 
 
 
